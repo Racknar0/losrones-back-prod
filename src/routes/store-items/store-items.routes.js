@@ -15,6 +15,7 @@ import {
   getStoreCategories,
   getStoreItems,
   getHighlightBlock,
+  getPublicHighlightBlock,
   getPublicFavoriteBlockCategories,
   getPublicFavoriteProducts,
   getPublicStoreCategories,
@@ -33,6 +34,7 @@ const router = Router();
 
 router.get('/public/favorites/categories', getPublicFavoriteBlockCategories);
 router.get('/public/favorites/products', getPublicFavoriteProducts);
+router.get('/public/highlight-block', getPublicHighlightBlock);
 router.get('/public/categories', getPublicStoreCategories);
 router.get('/public/products', getPublicStoreItems);
 

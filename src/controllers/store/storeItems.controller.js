@@ -1241,6 +1241,30 @@ export const getHighlightBlock = async (_req, res) => {
   }
 };
 
+export const getPublicHighlightBlock = async (_req, res) => {
+  try {
+    const highlightBlock = await prisma.storehighlightblock.findUnique({
+      where: { key: 'home' },
+    });
+
+    if (!highlightBlock) {
+      return res.status(200).json({
+        key: 'home',
+        title: '',
+        description: '',
+        discountLabel: '',
+        image: null,
+        isActive: true,
+      });
+    }
+
+    return res.status(200).json(highlightBlock);
+  } catch (error) {
+    console.error('Error fetching public highlight block:', error);
+    return res.status(500).json({ message: 'Error del servidor al obtener bloque destacado publico' });
+  }
+};
+
 export const updateHighlightBlock = async (req, res) => {
   try {
     const title = req.body.title?.trim() || '';

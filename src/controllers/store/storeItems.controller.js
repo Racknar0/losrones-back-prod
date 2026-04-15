@@ -173,10 +173,26 @@ const toNumberOrNull = (value) => {
 
 const normalizePublicStoreItem = (item) => {
   const categories = item.storeCategories.map((relation) => relation.category);
-  const webPrice = toNumberOrNull(item.webPrice) ?? 0;
-  const discountedPrice = toNumberOrNull(item.compareAtPrice);
-  const price = discountedPrice ?? webPrice;
-  const originalPrice = discountedPrice !== null ? webPrice : price;
+  const webPrice = toNumberOrNull(item.webPrice);
+  const compareAtPrice = toNumberOrNull(item.compareAtPrice);
+
+  const safeWebPrice = webPrice !== null && webPrice > 0 ? webPrice : 0;
+  const fallbackPrice =
+    safeWebPrice > 0
+      ? safeWebPrice
+      : compareAtPrice !== null && compareAtPrice > 0
+        ? compareAtPrice
+        : 0;
+
+  // Solo se considera descuento cuando el precio con descuento es valido y menor al precio base.
+  const hasValidDiscount =
+    compareAtPrice !== null &&
+    compareAtPrice > 0 &&
+    safeWebPrice > 0 &&
+    compareAtPrice < safeWebPrice;
+
+  const price = hasValidDiscount ? compareAtPrice : fallbackPrice;
+  const originalPrice = hasValidDiscount ? safeWebPrice : price;
   const gallery = Array.isArray(item.gallery)
     ? item.gallery.map((entry) => String(entry)).filter(Boolean)
     : [];
@@ -681,6 +697,108 @@ export const getPublicStoreItems = async (req, res) => {
   } catch (error) {
     console.error('Error fetching public store items:', error);
     return res.status(500).json({ message: 'Error del servidor al obtener productos publicos de tienda' });
+  }
+};
+
+export const getPublicFavoriteBlockCategories = async (_req, res) => {
+  try {
+    const favoriteCategories = await prisma.storefavoriteblockcategory.findMany({
+      include: {
+        storeCategory: true,
+        favoriteItems: {
+          where: {
+            storeItem: {
+              isPublished: true,
+            },
+          },
+          select: {
+            storeItemId: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    const normalized = favoriteCategories
+      .map((favoriteCategory) => ({
+        id: favoriteCategory.id,
+        storeCategoryId: favoriteCategory.storeCategoryId,
+        category: favoriteCategory.storeCategory,
+        selectedItemsCount: favoriteCategory.favoriteItems.length,
+      }))
+      .filter((favoriteCategory) => favoriteCategory.selectedItemsCount > 0);
+
+    return res.status(200).json(normalized);
+  } catch (error) {
+    console.error('Error fetching public favorite block categories:', error);
+    return res.status(500).json({ message: 'Error del servidor al obtener categorias publicas de favoritos' });
+  }
+};
+
+export const getPublicFavoriteProducts = async (req, res) => {
+  try {
+    const search = String(req.query.search || '').trim();
+    const rawFavoriteCategoryId = req.query.favoriteCategoryId ?? req.query.categoryId;
+    const hasFavoriteCategoryId = rawFavoriteCategoryId !== undefined && rawFavoriteCategoryId !== null && rawFavoriteCategoryId !== '';
+    const favoriteCategoryId = Number(rawFavoriteCategoryId);
+
+    if (hasFavoriteCategoryId && (!Number.isInteger(favoriteCategoryId) || favoriteCategoryId <= 0)) {
+      return res.status(400).json({ message: 'El id de categoria de favoritos no es valido' });
+    }
+
+    const where = {
+      isPublished: true,
+      favoriteBlockItems: {
+        some: hasFavoriteCategoryId
+          ? {
+              favoriteCategoryId,
+            }
+          : {},
+      },
+    };
+
+    if (search) {
+      where.OR = [
+        { alias: { contains: search } },
+        { description: { contains: search } },
+        { product: { name: { contains: search } } },
+        { product: { code: { contains: search } } },
+      ];
+    }
+
+    const storeItems = await prisma.storeitem.findMany({
+      where,
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            image: true,
+          },
+        },
+        storeCategories: {
+          include: {
+            category: true,
+          },
+        },
+      },
+      orderBy: {
+        alias: 'asc',
+      },
+    });
+
+    const normalizedItems = storeItems.map(normalizePublicStoreItem);
+
+    return res.status(200).json({
+      items: normalizedItems,
+      total: normalizedItems.length,
+    });
+  } catch (error) {
+    console.error('Error fetching public favorite products:', error);
+    return res.status(500).json({ message: 'Error del servidor al obtener productos publicos de favoritos' });
   }
 };
 

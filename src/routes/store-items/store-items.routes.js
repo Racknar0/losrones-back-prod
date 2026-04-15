@@ -15,6 +15,8 @@ import {
   getStoreCategories,
   getStoreItems,
   getHighlightBlock,
+  getPublicFavoriteBlockCategories,
+  getPublicFavoriteProducts,
   getPublicStoreCategories,
   getPublicStoreItems,
   updateStoreNews,
@@ -29,6 +31,8 @@ import upload from '../../middlewares/multerConfig.js';
 
 const router = Router();
 
+router.get('/public/favorites/categories', getPublicFavoriteBlockCategories);
+router.get('/public/favorites/products', getPublicFavoriteProducts);
 router.get('/public/categories', getPublicStoreCategories);
 router.get('/public/products', getPublicStoreItems);
 

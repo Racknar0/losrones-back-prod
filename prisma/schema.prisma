@@ -1,0 +1,304 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model user {
+  id                   Int       @id @default(autoincrement())
+  user                 String    @unique
+  password             String
+  email                String?   @unique
+  name                 String
+  lastName             String?
+  profilePicture       String?
+  lastLogin            DateTime?
+  resetToken           String?
+  resetTokenExpiration DateTime?
+  jwtVersion           Int       @default(1)
+  isActive             Boolean   @default(true)
+
+  roleId Int
+  role   role @relation(fields: [roleId], references: [id])
+
+  storeId Int?
+  store   store? @relation(fields: [storeId], references: [id])
+
+  sales         sale[]
+  stockUnitLogs stockUnitLog[]
+  cortes        corte[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model role {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  users user[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model store {
+  id      Int     @id @default(autoincrement())
+  name    String  @unique
+  address String?
+  phone   String?
+  email   String?
+  isActive Boolean @default(true)
+
+  users         user[]
+  stockunit     stockunit[]
+  sales         sale[]
+  stockUnitLogs stockUnitLog[]
+  cortes        corte[]
+  storeSequence storesequence?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model storesequence {
+  storeId    Int   @id
+  nextTicket Int   @default(1)
+  store      store @relation(fields: [storeId], references: [id])
+}
+
+model category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model product {
+  id            Int      @id @default(autoincrement())
+  name          String
+  code          String   @unique
+  barcode       String?  @unique // Código de barras del producto
+  categoryId    Int
+  category      category @relation(fields: [categoryId], references: [id])
+  purchasePrice Decimal  @db.Decimal(10, 2)
+  salePrice     Decimal  @db.Decimal(10, 2)
+  status        String
+  image         String?
+  perishable    Boolean  @default(false)
+  hasTax        Boolean  @default(false)
+
+  stockunit     stockunit[]
+  saleitem      saleitem[]
+  stockUnitLogs stockUnitLog[]
+  storeItem     storeitem?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model storeitem {
+  id               Int      @id @default(autoincrement())
+  productId        Int      @unique
+  product          product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  alias            String
+  slug             String   @unique
+  isPublished      Boolean  @default(false)
+  webPrice         Decimal  @db.Decimal(10, 2)
+  compareAtPrice   Decimal? @db.Decimal(10, 2)
+  description      String?  @db.Text
+  image            String?
+  gallery          Json?
+
+  storeCategories   storeitemcategory[]
+  favoriteBlockItems storefavoriteblockitem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model storecategory {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+  slug String @unique
+
+  storeItems             storeitemcategory[]
+  favoriteBlockCategories storefavoriteblockcategory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model storeitemcategory {
+  storeItemId Int
+  categoryId  Int
+
+  storeItem storeitem     @relation(fields: [storeItemId], references: [id], onDelete: Cascade)
+  category  storecategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([storeItemId, categoryId])
+}
+
+model storefavoriteblockcategory {
+  id              Int           @id @default(autoincrement())
+  storeCategoryId Int           @unique
+  storeCategory   storecategory @relation(fields: [storeCategoryId], references: [id], onDelete: Cascade)
+
+  favoriteItems storefavoriteblockitem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model storefavoriteblockitem {
+  favoriteCategoryId Int
+  storeItemId        Int
+
+  favoriteCategory storefavoriteblockcategory @relation(fields: [favoriteCategoryId], references: [id], onDelete: Cascade)
+  storeItem        storeitem                  @relation(fields: [storeItemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([favoriteCategoryId, storeItemId])
+}
+
+model storehighlightblock {
+  id            Int      @id @default(autoincrement())
+  key           String   @unique @default("home")
+  title         String   @db.VarChar(160)
+  description   String   @db.Text
+  discountLabel String?  @db.VarChar(80)
+  image         String?
+  isActive      Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model storenews {
+  id              Int      @id @default(autoincrement())
+  title           String   @db.VarChar(180)
+  tag             String?  @db.VarChar(80)
+  descriptionHtml String   @db.Text
+  image           String
+  isActive        Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model stockunit {
+  id             Int       @id @default(autoincrement())
+  productId      Int
+  product        product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  storeId        Int
+  store          store     @relation(fields: [storeId], references: [id])
+  expirationDate DateTime? @db.Date
+  sold           Boolean   @default(false)
+
+  saleitem saleitem[]
+
+  createdAt DateTime @default(now())
+}
+
+model sale {
+  id                 Int        @id @default(autoincrement())
+  ticketNumber       Int? // número de ticket
+  storeId            Int
+  store              store      @relation(fields: [storeId], references: [id])
+  userId             Int?
+  user               user?      @relation(fields: [userId], references: [id])
+  totalAmount        Decimal    @db.Decimal(10, 2) // será el total CON cupones
+  totalWithoutCoupon Decimal    @default(0) @db.Decimal(10, 2)
+  couponCode         String? // ← cupón global, si aplica
+  paymentMethod      String // "cash", "card", "transfer", etc.
+  receivedAmount     Decimal    @default(0) @db.Decimal(10, 2) // monto recibido
+  changeAmount       Decimal    @default(0) @db.Decimal(10, 2) // cambio devuelto
+  createdAt          DateTime   @default(now())
+  saleItems          saleitem[]
+
+  isDeleted Boolean   @default(false) // para manejar eliminaciones lógicas
+  deletedAt DateTime? // para manejar eliminaciones lógicas
+
+  type           String? @default("venta") // "venta" | "cambio"
+  originalSaleId Int?    @unique // apunta a la venta original si es un cambio
+  originalSale   sale?   @relation("SaleToExchange", fields: [originalSaleId], references: [id])
+
+  exchangedSale sale? @relation("SaleToExchange")
+}
+
+model saleitem {
+  id             Int       @id @default(autoincrement())
+  saleId         Int
+  sale           sale      @relation(fields: [saleId], references: [id])
+  stockUnitId    Int
+  stockunit      stockunit @relation(fields: [stockUnitId], references: [id])
+  productId      Int
+  product        product   @relation(fields: [productId], references: [id])
+  unitPrice      Decimal   @db.Decimal(10, 2) // precio QUE ENVÍA el front (ya con su cupón item‑level)
+  itemCouponCode String? // ← cupón aplicado a este ítem
+  createdAt      DateTime  @default(now())
+}
+
+model coupon {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  description String?
+  discount    Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model stockUnitLog {
+  id          Int @id @default(autoincrement())
+  stockUnitId Int
+
+  productId Int?
+  product   product? @relation(fields: [productId], references: [id])
+
+  storeId Int?
+  store   store? @relation(fields: [storeId], references: [id])
+
+  expirationDate DateTime? @db.Date
+  action         String
+  userId         Int?
+  user           user?     @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model corte {
+  id             Int      @id @default(autoincrement())
+  date           DateTime @db.Date // Fecha del corte
+  folioInicial   Int // Primer folio del día
+  folioFinal     Int // Último folio del día
+  ventaTotal     Decimal  @db.Decimal(10, 2) // Suma total bruto de ventas
+  costoTotal     Decimal  @db.Decimal(10, 2) // Suma total de costos
+  efectivo       Decimal  @db.Decimal(10, 2)
+  tarjeta        Decimal  @db.Decimal(10, 2)
+  transferencia  Decimal  @db.Decimal(10, 2)
+  ingresoInterno Decimal? @db.Decimal(10, 2) // Adiciional de entrada por cambios
+  apartados      Decimal? @db.Decimal(10, 2)
+  comentarios    String?  @db.Text
+
+  userId Int
+  user   user @relation(fields: [userId], references: [id])
+
+  storeId Int
+  store   store @relation(fields: [storeId], references: [id])
+
+  createdAt DateTime @default(now())
+}

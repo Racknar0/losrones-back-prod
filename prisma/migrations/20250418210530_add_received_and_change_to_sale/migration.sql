@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `sale` ADD COLUMN `changeAmount` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    ADD COLUMN `receivedAmount` DECIMAL(10, 2) NOT NULL DEFAULT 0;

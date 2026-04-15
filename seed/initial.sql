@@ -1,0 +1,4 @@
+DROP DATABASE IF EXISTS loronesdb;
+CREATE DATABASE loronesDB
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;

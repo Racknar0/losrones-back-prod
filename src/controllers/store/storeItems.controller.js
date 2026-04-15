@@ -166,6 +166,38 @@ const stripHtmlTags = (html = '') => {
     .trim();
 };
 
+const toNumberOrNull = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizePublicStoreItem = (item) => {
+  const categories = item.storeCategories.map((relation) => relation.category);
+  const webPrice = toNumberOrNull(item.webPrice) ?? 0;
+  const discountedPrice = toNumberOrNull(item.compareAtPrice);
+  const price = discountedPrice ?? webPrice;
+  const originalPrice = discountedPrice !== null ? webPrice : price;
+  const gallery = Array.isArray(item.gallery)
+    ? item.gallery.map((entry) => String(entry)).filter(Boolean)
+    : [];
+  const primaryImage = item.image || gallery[0] || item.product?.image || null;
+
+  return {
+    id: item.id,
+    productId: item.productId,
+    slug: item.slug,
+    name: item.alias || item.product?.name || '',
+    description: item.description || '',
+    price,
+    originalPrice,
+    image: primaryImage,
+    gallery,
+    rating: 5,
+    categories,
+    categoryIds: categories.map((category) => category.id),
+  };
+};
+
 const ensureUniqueCategorySlug = async (name, currentCategoryId = null) => {
   const base = normalizeSlug(name) || 'categoria-tienda';
   let candidate = base;
@@ -535,6 +567,120 @@ export const getStoreCategories = async (_req, res) => {
   } catch (error) {
     console.error('Error fetching store categories:', error);
     return res.status(500).json({ message: 'Error del servidor al obtener categorías de tienda' });
+  }
+};
+
+export const getPublicStoreCategories = async (_req, res) => {
+  try {
+    const categories = await prisma.storecategory.findMany({
+      where: {
+        storeItems: {
+          some: {
+            storeItem: {
+              isPublished: true,
+            },
+          },
+        },
+      },
+      include: {
+        storeItems: {
+          where: {
+            storeItem: {
+              isPublished: true,
+            },
+          },
+          select: {
+            storeItemId: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    const normalized = categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      productsCount: category.storeItems.length,
+    }));
+
+    return res.status(200).json(normalized);
+  } catch (error) {
+    console.error('Error fetching public store categories:', error);
+    return res.status(500).json({ message: 'Error del servidor al obtener categorias publicas de tienda' });
+  }
+};
+
+export const getPublicStoreItems = async (req, res) => {
+  try {
+    const search = String(req.query.search || '').trim();
+    const rawCategoryId = req.query.categoryId ?? req.query.category;
+    const categoryId = Number(rawCategoryId);
+    const categorySlug = String(req.query.categorySlug || '').trim();
+
+    const where = {
+      isPublished: true,
+    };
+
+    if (search) {
+      where.OR = [
+        { alias: { contains: search } },
+        { description: { contains: search } },
+        { product: { name: { contains: search } } },
+        { product: { code: { contains: search } } },
+      ];
+    }
+
+    if (Number.isInteger(categoryId) && categoryId > 0) {
+      where.storeCategories = {
+        some: {
+          categoryId,
+        },
+      };
+    } else if (categorySlug) {
+      where.storeCategories = {
+        some: {
+          category: {
+            slug: categorySlug,
+          },
+        },
+      };
+    }
+
+    const storeItems = await prisma.storeitem.findMany({
+      where,
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            image: true,
+          },
+        },
+        storeCategories: {
+          include: {
+            category: true,
+          },
+        },
+      },
+      orderBy: [
+        { updatedAt: 'desc' },
+        { id: 'desc' },
+      ],
+    });
+
+    const normalizedItems = storeItems.map(normalizePublicStoreItem);
+
+    return res.status(200).json({
+      items: normalizedItems,
+      total: normalizedItems.length,
+    });
+  } catch (error) {
+    console.error('Error fetching public store items:', error);
+    return res.status(500).json({ message: 'Error del servidor al obtener productos publicos de tienda' });
   }
 };
 

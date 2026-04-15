@@ -15,6 +15,8 @@ import {
   getStoreCategories,
   getStoreItems,
   getHighlightBlock,
+  getPublicStoreCategories,
+  getPublicStoreItems,
   updateStoreNews,
   updateFavoriteBlockCategoryProducts,
   updateStoreCategory,
@@ -26,6 +28,9 @@ import { permitMiddleware } from '../../middlewares/permit.js';
 import upload from '../../middlewares/multerConfig.js';
 
 const router = Router();
+
+router.get('/public/categories', getPublicStoreCategories);
+router.get('/public/products', getPublicStoreItems);
 
 router.get('/products-source', authMiddleware, permitMiddleware('admin', 'moderador'), getSourceProductsForStoreItems);
 router.post('/bulk-create', authMiddleware, permitMiddleware('admin', 'moderador'), createStoreItemsFromProducts);

@@ -192,6 +192,7 @@ model storenews {
   id              Int      @id @default(autoincrement())
   title           String   @db.VarChar(180)
   tag             String?  @db.VarChar(80)
+  tagColor        String?  @db.VarChar(20)
   descriptionHtml String   @db.Text
   image           String
   isActive        Boolean  @default(true)

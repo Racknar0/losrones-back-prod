@@ -166,6 +166,20 @@ const stripHtmlTags = (html = '') => {
     .trim();
 };
 
+const NEWS_TAG_COLOR_OPTIONS = ['#ffba30', '#27ae60', '#3498db', '#e74c3c', '#1abc9c'];
+const DEFAULT_NEWS_TAG_COLOR = NEWS_TAG_COLOR_OPTIONS[0];
+
+const normalizeNewsTagColor = (value, fallback = null) => {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  const withHash = normalized.startsWith('#') ? normalized : `#${normalized}`;
+
+  return NEWS_TAG_COLOR_OPTIONS.includes(withHash) ? withHash : fallback;
+};
+
 const toNumberOrNull = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -1345,10 +1359,17 @@ export const getStoreNews = async (_req, res) => {
       },
     });
 
-    const normalizedNews = news.map((entry) => ({
-      ...entry,
-      excerpt: stripHtmlTags(entry.descriptionHtml).slice(0, 160),
-    }));
+    const normalizedNews = news.map((entry) => {
+      const normalizedTagColor = entry.tag
+        ? normalizeNewsTagColor(entry.tagColor, DEFAULT_NEWS_TAG_COLOR)
+        : null;
+
+      return {
+        ...entry,
+        tagColor: normalizedTagColor,
+        excerpt: stripHtmlTags(entry.descriptionHtml).slice(0, 160),
+      };
+    });
 
     return res.status(200).json(normalizedNews);
   } catch (error) {
@@ -1357,10 +1378,41 @@ export const getStoreNews = async (_req, res) => {
   }
 };
 
+export const getPublicStoreNews = async (_req, res) => {
+  try {
+    const news = await prisma.storenews.findMany({
+      where: {
+        isActive: true,
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    });
+
+    const normalizedNews = news.map((entry) => {
+      const normalizedTagColor = entry.tag
+        ? normalizeNewsTagColor(entry.tagColor, DEFAULT_NEWS_TAG_COLOR)
+        : null;
+
+      return {
+        ...entry,
+        tagColor: normalizedTagColor,
+        excerpt: stripHtmlTags(entry.descriptionHtml).slice(0, 160),
+      };
+    });
+
+    return res.status(200).json(normalizedNews);
+  } catch (error) {
+    console.error('Error fetching public store news:', error);
+    return res.status(500).json({ message: 'Error del servidor al obtener noticias publicas' });
+  }
+};
+
 export const createStoreNews = async (req, res) => {
   try {
     const title = req.body.title?.trim() || '';
     const tag = req.body.tag?.trim() || '';
+    const tagColor = normalizeNewsTagColor(req.body.tagColor, tag ? DEFAULT_NEWS_TAG_COLOR : null);
     const descriptionHtml = req.body.descriptionHtml || '';
     const descriptionText = stripHtmlTags(descriptionHtml);
     const isActive = parseBoolean(req.body.isActive, true);
@@ -1382,6 +1434,7 @@ export const createStoreNews = async (req, res) => {
       data: {
         title,
         tag: tag || null,
+        tagColor,
         descriptionHtml,
         image,
         isActive,
@@ -1420,6 +1473,7 @@ export const updateStoreNews = async (req, res) => {
 
     const title = req.body.title?.trim() || '';
     const tag = req.body.tag?.trim() || '';
+    const tagColor = normalizeNewsTagColor(req.body.tagColor, tag ? DEFAULT_NEWS_TAG_COLOR : null);
     const descriptionHtml = req.body.descriptionHtml || '';
     const descriptionText = stripHtmlTags(descriptionHtml);
     const isActive = parseBoolean(req.body.isActive, true);
@@ -1457,6 +1511,7 @@ export const updateStoreNews = async (req, res) => {
       data: {
         title,
         tag: tag || null,
+        tagColor,
         descriptionHtml,
         image: resolvedImage,
         isActive,

@@ -161,6 +161,7 @@ const normalizeStoreItemWithCategories = (item) => ({
 
 const stripHtmlTags = (html = '') => {
   return String(html)
+    .replace(/&nbsp;/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -1363,9 +1364,11 @@ export const getStoreNews = async (_req, res) => {
       const normalizedTagColor = entry.tag
         ? normalizeNewsTagColor(entry.tagColor, DEFAULT_NEWS_TAG_COLOR)
         : null;
+      const normalizedImage = entry.image ? String(entry.image).replace(/\\/g, '/') : null;
 
       return {
         ...entry,
+        image: normalizedImage,
         tagColor: normalizedTagColor,
         excerpt: stripHtmlTags(entry.descriptionHtml).slice(0, 160),
       };
@@ -1393,9 +1396,11 @@ export const getPublicStoreNews = async (_req, res) => {
       const normalizedTagColor = entry.tag
         ? normalizeNewsTagColor(entry.tagColor, DEFAULT_NEWS_TAG_COLOR)
         : null;
+      const normalizedImage = entry.image ? String(entry.image).replace(/\\/g, '/') : null;
 
       return {
         ...entry,
+        image: normalizedImage,
         tagColor: normalizedTagColor,
         excerpt: stripHtmlTags(entry.descriptionHtml).slice(0, 160),
       };
@@ -1416,7 +1421,7 @@ export const createStoreNews = async (req, res) => {
     const descriptionHtml = req.body.descriptionHtml || '';
     const descriptionText = stripHtmlTags(descriptionHtml);
     const isActive = parseBoolean(req.body.isActive, true);
-    const image = req.file?.path || null;
+    const image = req.file?.path ? String(req.file.path).replace(/\\/g, '/') : null;
 
     if (!title) {
       return res.status(400).json({ message: 'El titulo de la noticia es obligatorio' });
@@ -1478,7 +1483,7 @@ export const updateStoreNews = async (req, res) => {
     const descriptionText = stripHtmlTags(descriptionHtml);
     const isActive = parseBoolean(req.body.isActive, true);
     const keepCurrentImage = parseBoolean(req.body.keepCurrentImage, true);
-    const uploadedImage = req.file?.path || null;
+    const uploadedImage = req.file?.path ? String(req.file.path).replace(/\\/g, '/') : null;
 
     if (!title) {
       return res.status(400).json({ message: 'El titulo de la noticia es obligatorio' });

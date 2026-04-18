@@ -7,6 +7,17 @@ const prisma = new PrismaClient();
 
 const TOKENVERSION = process.env.TOKEN_VERSION || 1;
 
+const normalizeStoredFilePath = (storedPath = '') => {
+    return String(storedPath)
+        .replace(/[\\/]+/g, path.sep)
+        .replace(new RegExp(`^${path.sep}+`), '');
+};
+
+const getAbsoluteStoredFilePath = (storedPath = '') => {
+    const normalizedPath = normalizeStoredFilePath(storedPath);
+    return path.join(process.cwd(), normalizedPath);
+};
+
 // Create a new user
 export const createUser = async (req, res) => {
     const { username, password, name, lastName, roleId, email, storeId } =
@@ -147,16 +158,16 @@ export const updateUser = async (req, res) => {
 
         // Si se envió una nueva imagen, eliminar la imagen anterior (si existe)
         if (req.file && existingUser.profilePicture) {
-            const filePath = path.join(
-                process.cwd(),
-                existingUser.profilePicture
-            );
-            fs.unlink(filePath, (err) => {
-                if (err) {
-                    console.error('Error al eliminar la imagen anterior:', err);
-                    // Puedes optar por continuar o retornar un error, según la lógica que requieras
-                }
-            });
+            const filePath = getAbsoluteStoredFilePath(existingUser.profilePicture);
+
+            if (fs.existsSync(filePath)) {
+                fs.unlink(filePath, (err) => {
+                    if (err) {
+                        console.error('Error al eliminar la imagen anterior:', err);
+                        // Puedes optar por continuar o retornar un error, según la lógica que requieras
+                    }
+                });
+            }
         }
 
         // Verificar que el email no esté registrado si se proporciona y es diferente al actual
@@ -223,13 +234,16 @@ export const deleteUser = async (req, res) => {
         // Si el usuario tiene imagen de perfil, eliminarla del almacenamiento
         if (user.profilePicture) {
             // Construir la ruta absoluta al archivo
-            const filePath = path.join(process.cwd(), user.profilePicture);
-            fs.unlink(filePath, (err) => {
-                if (err) {
-                    console.error('Error al eliminar la imagen:', err);
-                    // Puedes decidir si retornar un error o continuar
-                }
-            });
+            const filePath = getAbsoluteStoredFilePath(user.profilePicture);
+
+            if (fs.existsSync(filePath)) {
+                fs.unlink(filePath, (err) => {
+                    if (err) {
+                        console.error('Error al eliminar la imagen:', err);
+                        // Puedes decidir si retornar un error o continuar
+                    }
+                });
+            }
         }
 
         // Eliminar el usuario de la base de datos

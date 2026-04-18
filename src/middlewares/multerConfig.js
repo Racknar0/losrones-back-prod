@@ -2,10 +2,37 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import sharp from 'sharp';
 
 const MAX_FILE_SIZE_MB = 15;
 const WEBP_QUALITY = 82;
+let sharpLoadPromise = null;
+let sharpUnavailableLogged = false;
+
+const resolveSharp = async () => {
+  if (!sharpLoadPromise) {
+    sharpLoadPromise = import('sharp')
+      .then((module) => module.default ?? module)
+      .catch(() => null);
+  }
+
+  return sharpLoadPromise;
+};
+
+const getExtensionFromFile = (file) => {
+  const extFromName = path.extname(file?.originalname || '').toLowerCase();
+  if (extFromName) return extFromName;
+
+  const mimeToExt = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp',
+    'image/avif': '.avif',
+    'image/svg+xml': '.svg',
+  };
+
+  return mimeToExt[file?.mimetype] || '.bin';
+};
 
 // Middleware factory que recibe una subcarpeta (por ejemplo: 'profiles', 'products', etc.)
 const createUploader = (folderName = 'general') => {
@@ -48,23 +75,38 @@ const createUploader = (folderName = 'general') => {
       const relativeUploadDir = ['uploads', folderName].join('/');
       const absoluteUploadDir = path.join(process.cwd(), relativeUploadDir);
       fs.mkdirSync(absoluteUploadDir, { recursive: true });
+      const sharp = await resolveSharp();
+
+      if (!sharp && !sharpUnavailableLogged) {
+        sharpUnavailableLogged = true;
+        console.warn(
+          '[multerConfig] El paquete sharp no está disponible. Se guardarán imágenes sin convertir a WEBP hasta instalar sharp.'
+        );
+      }
 
       await Promise.all(
         filesToProcess.map(async (file) => {
-          const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
+          const extension = sharp ? '.webp' : getExtensionFromFile(file);
+          const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`;
           const relativePath = `${relativeUploadDir}/${uniqueName}`;
           const absolutePath = path.join(process.cwd(), relativePath);
 
-          await sharp(file.buffer)
-            .rotate()
-            .webp({ quality: WEBP_QUALITY })
-            .toFile(absolutePath);
+          if (sharp) {
+            await sharp(file.buffer)
+              .rotate()
+              .webp({ quality: WEBP_QUALITY })
+              .toFile(absolutePath);
+          } else {
+            fs.writeFileSync(absolutePath, file.buffer);
+          }
 
           const outputStats = fs.statSync(absolutePath);
 
           file.filename = uniqueName;
           file.path = relativePath;
-          file.mimetype = 'image/webp';
+          if (sharp) {
+            file.mimetype = 'image/webp';
+          }
           file.size = outputStats.size;
           delete file.buffer;
         })

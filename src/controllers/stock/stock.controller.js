@@ -3,6 +3,31 @@ import { logStockUnitMovement } from './stockUnitLogService.js';
 
 const prisma = new PrismaClient();
 
+const parseAndValidateExpirationDate = (inputDate) => {
+  if (inputDate === null || inputDate === undefined || `${inputDate}`.trim() === '') {
+    return { ok: true, value: null };
+  }
+
+  const parsedDate = new Date(inputDate);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return {
+      ok: false,
+      message: `Fecha de vencimiento inválida: ${inputDate}`,
+    };
+  }
+
+  // Prisma maneja DateTime en formato ISO con año de 4 dígitos (0001-9999).
+  const year = parsedDate.getUTCFullYear();
+  if (year < 1 || year > 9999) {
+    return {
+      ok: false,
+      message: `Año fuera de rango para fecha de vencimiento: ${inputDate}`,
+    };
+  }
+
+  return { ok: true, value: parsedDate };
+};
+
 /**
  * Endpoint para crear múltiples unidades de stock (StockUnit) de forma bulk.
  * Se espera que en el body se envíen:
@@ -90,11 +115,19 @@ export const createStockUnits = async (req, res) => {
         ? (expirationDates[i] || expirationDates[0])
         : null;
 
+      const parsedExpirationDate = parseAndValidateExpirationDate(dateStr);
+      if (!parsedExpirationDate.ok) {
+        return res.status(400).json({
+          message: parsedExpirationDate.message,
+          index: i,
+        });
+      }
+
       const stockUnit = await prisma.stockunit.create({
         data: {
           productId: productIdNum,
           storeId: Number(storeToUse),
-          expirationDate: dateStr ? new Date(dateStr) : null,
+          expirationDate: parsedExpirationDate.value,
         },
       });
       newStockUnits.push(stockUnit);
@@ -227,14 +260,12 @@ export const updateStockUnitExpiration = async (req, res) => {
     }
 
     // Permite null para limpiar fecha si el producto deja de ser perecedero
-    let newDate = null;
-    if (expirationDate !== undefined && expirationDate !== null && `${expirationDate}`.trim() !== '') {
-      const parsed = new Date(expirationDate);
-      if (isNaN(parsed.getTime())) {
-        return res.status(400).json({ message: 'Fecha de vencimiento inválida' });
-      }
-      newDate = parsed;
+    const parsedExpirationDate = parseAndValidateExpirationDate(expirationDate);
+    if (!parsedExpirationDate.ok) {
+      return res.status(400).json({ message: parsedExpirationDate.message });
     }
+
+    const newDate = parsedExpirationDate.value;
 
     console.log('Nueva fecha de vencimiento:', newDate);
     // Verificar que exista

@@ -121,6 +121,7 @@ export const getAllProducts = async (req, res) => {
           where: { 
             storeId,
             sold: false, // Solo stock no vendido
+            isDeleted: false,
           },
           include: {
             store: true, // Incluimos la info de la tienda
@@ -337,6 +338,7 @@ export const getExpiringPerishablesByStore = async (req, res) => {
           where: {
             storeId: store.id,
             sold: false,
+            isDeleted: false,
             expirationDate: {
               gte: today,
               lte: fifteenDaysLater,
@@ -408,6 +410,7 @@ export const getProductByBarcode = async (req, res) => {
           where: { 
             storeId: parseInt(storeId),
             sold: false, // Solo stock no vendido
+            isDeleted: false,
           },
           include: {
             store: true,

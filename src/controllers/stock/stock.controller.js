@@ -175,6 +175,7 @@ export const getStockUnitsByProduct = async (req, res) => {
         productId: Number(productId),
         storeId: Number(storeId),
         sold: false, // Solo unidades no vendidas
+        isDeleted: false,
         // saleitem: { none: {} },
       },
       include: {
@@ -212,10 +213,14 @@ export const deleteStockUnitsBulk = async (req, res) => {
       where: { id: { in: ids.map(Number) } }
     });
 
-    // Eliminar múltiples registros cuyo id esté en el arreglo
-    const deleted = await prisma.stockunit.deleteMany({
+    // Eliminar lógicamente múltiples registros cuyo id esté en el arreglo (Soft Delete)
+    const deleted = await prisma.stockunit.updateMany({
       where: {
         id: { in: ids.map(Number) },
+      },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
       },
     });
 
@@ -270,8 +275,8 @@ export const updateStockUnitExpiration = async (req, res) => {
     console.log('Nueva fecha de vencimiento:', newDate);
     // Verificar que exista
     const existing = await prisma.stockunit.findUnique({ where: { id: Number(id) } });
-    if (!existing) {
-      return res.status(404).json({ message: 'Stock unit no encontrada' });
+    if (!existing || existing.isDeleted) {
+      return res.status(404).json({ message: 'Stock unit no encontrada o eliminada' });
     }
 
     // No permitir editar si ya fue vendida

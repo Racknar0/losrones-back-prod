@@ -210,6 +210,9 @@ model stockunit {
   expirationDate DateTime? @db.Date
   sold           Boolean   @default(false)
 
+  isDeleted      Boolean   @default(false)
+  deletedAt      DateTime?
+
   saleitem saleitem[]
 
   createdAt DateTime @default(now())

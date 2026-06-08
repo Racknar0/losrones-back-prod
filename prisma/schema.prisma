@@ -236,6 +236,7 @@ model sale {
 
   isDeleted Boolean   @default(false) // para manejar eliminaciones lógicas
   deletedAt DateTime? // para manejar eliminaciones lógicas
+  isHomeDelivery Boolean @default(false)
 
   type           String? @default("venta") // "venta" | "cambio"
   originalSaleId Int?    @unique // apunta a la venta original si es un cambio

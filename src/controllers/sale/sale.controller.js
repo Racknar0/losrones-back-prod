@@ -28,7 +28,8 @@ export const createSale = async (req, res) => {
     items,
     returnedItems = [],
     originalSaleId = null, // ID de la venta original si es un cambio
-    type = 'venta'      
+    type = 'venta',      
+    isHomeDelivery = false
   } = req.body;
 
   console.log('Datos recibidos para crear venta:', {
@@ -43,7 +44,8 @@ export const createSale = async (req, res) => {
     items,
     returnedItems,
     originalSaleId,
-    type
+    type,
+    isHomeDelivery
   });
 
   // 1) Validación para cambios parciales
@@ -96,6 +98,7 @@ export const createSale = async (req, res) => {
           ticketNumber,
           type,             // 'venta' o 'cambio'
           originalSaleId,   // ID de la venta original
+          isHomeDelivery,   // Guardar si es envío a domicilio
         },
       });
 
